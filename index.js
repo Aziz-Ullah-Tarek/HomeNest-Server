@@ -64,12 +64,19 @@ async function run() {
       }
     });
 
-    // Get featured properties
+    // Get featured properties (6 most recent)
     app.get('/api/properties/featured', async (req, res) => {
       try {
-        const properties = await propertiesCollection.find({ featured: true }).limit(6).toArray();
+        // Sort by createdAt descending (newest first) and limit to 6
+        const properties = await propertiesCollection
+          .find()
+          .sort({ createdAt: -1 })
+          .limit(6)
+          .toArray();
+        console.log("Fetched featured properties:", properties.length);
         res.json(properties);
       } catch (error) {
+        console.error("Error fetching featured properties:", error);
         res.status(500).json({ message: "Error fetching featured properties", error: error.message });
       }
     });
@@ -81,6 +88,22 @@ async function run() {
         res.json(properties);
       } catch (error) {
         res.status(500).json({ message: "Error fetching properties", error: error.message });
+      }
+    });
+
+    // Get single property by ID
+    app.get('/api/properties/:id', async (req, res) => {
+      try {
+        const { ObjectId } = require('mongodb');
+        const property = await propertiesCollection.findOne({ _id: new ObjectId(req.params.id) });
+        if (!property) {
+          return res.status(404).json({ message: "Property not found" });
+        }
+        console.log("Fetched property:", property.title);
+        res.json(property);
+      } catch (error) {
+        console.error("Error fetching property:", error);
+        res.status(500).json({ message: "Error fetching property", error: error.message });
       }
     });
 
@@ -101,6 +124,7 @@ app.get('/', (req, res) => {
       <li><a href="/api/sliders">GET /api/sliders</a> - Get all sliders (lowercase 's'!)</li>
       <li><a href="/api/properties/featured">GET /api/properties/featured</a> - Get featured properties</li>
       <li><a href="/api/properties">GET /api/properties</a> - Get all properties</li>
+      <li>GET /api/properties/:id - Get single property by ID</li>
     </ul>
     <p><strong>Note:</strong> URLs are case-sensitive! Use lowercase routes.</p>
   `);
