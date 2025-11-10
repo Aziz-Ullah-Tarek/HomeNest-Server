@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection URI - URL encode password to handle special characters
+// MongoDB Connection URI
 const encodedPassword = encodeURIComponent(process.env.DB_PASS);
 const uri = `mongodb+srv://${process.env.DB_USER}:${encodedPassword}@cluster0.bcz1ya4.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -107,6 +107,30 @@ async function run() {
       }
     });
 
+    // Add new property (POST)
+    app.post('/api/properties', async (req, res) => {
+      try {
+        const propertyData = req.body;
+        
+        // Validation
+        if (!propertyData.title || !propertyData.description || !propertyData.category || !propertyData.price) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        // Insert property
+        const result = await propertiesCollection.insertOne(propertyData);
+        console.log("Property added:", propertyData.title, "by", propertyData.userName);
+        
+        res.status(201).json({ 
+          message: "Property added successfully", 
+          insertedId: result.insertedId 
+        });
+      } catch (error) {
+        console.error("Error adding property:", error);
+        res.status(500).json({ message: "Error adding property", error: error.message });
+      }
+    });
+
   } catch (error) {
     console.error(" Error connecting to MongoDB:", error);
   }
@@ -121,10 +145,11 @@ app.get('/', (req, res) => {
     <h2>Available API Endpoints:</h2>
     <ul>
       <li><a href="/api/test">GET /api/test</a> - Test MongoDB connection</li>
-      <li><a href="/api/sliders">GET /api/sliders</a> - Get all sliders (lowercase 's'!)</li>
-      <li><a href="/api/properties/featured">GET /api/properties/featured</a> - Get featured properties</li>
+      <li><a href="/api/sliders">GET /api/sliders</a> - Get all sliders</li>
+      <li><a href="/api/properties/featured">GET /api/properties/featured</a> - Get featured properties (6 most recent)</li>
       <li><a href="/api/properties">GET /api/properties</a> - Get all properties</li>
       <li>GET /api/properties/:id - Get single property by ID</li>
+      <li>POST /api/properties - Add new property</li>
     </ul>
     <p><strong>Note:</strong> URLs are case-sensitive! Use lowercase routes.</p>
   `);
