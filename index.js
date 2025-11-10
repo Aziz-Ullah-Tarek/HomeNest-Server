@@ -131,6 +131,47 @@ async function run() {
       }
     });
 
+    // Delete property by ID
+    app.delete('/api/properties/:id', async (req, res) => {
+      try {
+        const { ObjectId } = require('mongodb');
+        const result = await propertiesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: "Property not found" });
+        }
+        
+        console.log("Property deleted:", req.params.id);
+        res.json({ message: "Property deleted successfully" });
+      } catch (error) {
+        console.error("Error deleting property:", error);
+        res.status(500).json({ message: "Error deleting property", error: error.message });
+      }
+    });
+
+    // Update property by ID
+    app.put('/api/properties/:id', async (req, res) => {
+      try {
+        const { ObjectId } = require('mongodb');
+        const { _id, ...updateData } = req.body;
+        
+        const result = await propertiesCollection.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: updateData }
+        );
+        
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Property not found" });
+        }
+        
+        console.log("Property updated:", req.params.id);
+        res.json({ message: "Property updated successfully" });
+      } catch (error) {
+        console.error("Error updating property:", error);
+        res.status(500).json({ message: "Error updating property", error: error.message });
+      }
+    });
+
   } catch (error) {
     console.error(" Error connecting to MongoDB:", error);
   }
