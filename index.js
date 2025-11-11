@@ -175,6 +175,20 @@ async function run() {
 
     // ============= REVIEWS API Routes =============
 
+    // Get all reviews
+    app.get('/api/reviews', async (req, res) => {
+      try {
+        const reviews = await reviewsCollection
+          .find({})
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.json(reviews);
+      } catch (error) {
+        console.error("Error fetching all reviews:", error);
+        res.status(500).json({ message: "Error fetching reviews", error: error.message });
+      }
+    });
+
     // Get all reviews for a specific property
     app.get('/api/reviews/property/:propertyId', async (req, res) => {
       try {
