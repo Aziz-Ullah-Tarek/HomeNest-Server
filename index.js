@@ -33,6 +33,7 @@ async function run() {
     const database = client.db("HomeNestDB");
     const slidersCollection = database.collection("Sliders");
     const propertiesCollection = database.collection("Properties");
+    const reviewsCollection = database.collection("Reviews");
 
     // ============= API Routes =============
 
@@ -169,6 +170,87 @@ async function run() {
       } catch (error) {
         console.error("Error updating property:", error);
         res.status(500).json({ message: "Error updating property", error: error.message });
+      }
+    });
+
+    // ============= REVIEWS API Routes =============
+
+    // Get all reviews for a specific property
+    app.get('/api/reviews/property/:propertyId', async (req, res) => {
+      try {
+        const reviews = await reviewsCollection
+          .find({ propertyId: req.params.propertyId })
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.json(reviews);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ message: "Error fetching reviews", error: error.message });
+      }
+    });
+
+    // Get all reviews by a specific user (for My Ratings page)
+    app.get('/api/reviews/user/:userEmail', async (req, res) => {
+      try {
+        const reviews = await reviewsCollection
+          .find({ userEmail: req.params.userEmail })
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.json(reviews);
+      } catch (error) {
+        console.error("Error fetching user reviews:", error);
+        res.status(500).json({ message: "Error fetching user reviews", error: error.message });
+      }
+    });
+
+    // Add new review
+    app.post('/api/reviews', async (req, res) => {
+      try {
+        const reviewData = {
+          ...req.body,
+          createdAt: new Date().toISOString()
+        };
+        
+        console.log("Received review data:", reviewData);
+        
+        // Validation - check for undefined/null, not falsy values
+        if (!reviewData.propertyId || reviewData.rating === undefined || reviewData.rating === null || !reviewData.review) {
+          console.log("Validation failed:", {
+            hasPropertyId: !!reviewData.propertyId,
+            rating: reviewData.rating,
+            hasReview: !!reviewData.review
+          });
+          return res.status(400).json({ message: "Missing required fields: propertyId, rating, and review are required" });
+        }
+
+        const result = await reviewsCollection.insertOne(reviewData);
+        console.log("Review added for property:", reviewData.propertyId, "by", reviewData.userName);
+        
+        res.status(201).json({ 
+          message: "Review added successfully", 
+          insertedId: result.insertedId 
+        });
+      } catch (error) {
+        console.error("Error adding review:", error);
+        res.status(500).json({ message: "Error adding review", error: error.message });
+      }
+    });
+
+    // Delete review by ID
+    app.delete('/api/reviews/:id', async (req, res) => {
+      try {
+        const { ObjectId } = require('mongodb');
+        const result = await reviewsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: "Review not found" });
+        }
+        
+        console.log("Review deleted:", req.params.id);
+        res.json({ message: "Review deleted successfully" });
+      } catch (error) {
+        console.error("Error deleting review:", error);
+        res.status(500).json({ message: "Error deleting review", error: error.message });
       }
     });
 
