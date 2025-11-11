@@ -82,10 +82,28 @@ async function run() {
       }
     });
 
-    // Get all properties
+    // all properties sorting
     app.get('/api/properties', async (req, res) => {
       try {
-        const properties = await propertiesCollection.find().toArray();
+        const { sortBy, order } = req.query;
+        
+       
+        let sortOptions = { createdAt: -1 }; 
+        
+        // Handle different sort options
+        if (sortBy === 'price') {
+          sortOptions = { price: order === 'asc' ? 1 : -1 };
+        } else if (sortBy === 'date') {
+          sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+        } else if (sortBy === 'title') {
+          sortOptions = { title: order === 'asc' ? 1 : -1 };
+        }
+        
+        const properties = await propertiesCollection
+          .find()
+          .sort(sortOptions)
+          .toArray();
+        
         res.json(properties);
       } catch (error) {
         res.status(500).json({ message: "Error fetching properties", error: error.message });
@@ -227,7 +245,7 @@ async function run() {
         
         console.log("Received review data:", reviewData);
         
-        // Validation - check for undefined/null, not falsy values
+        // Validation - check 
         if (!reviewData.propertyId || reviewData.rating === undefined || reviewData.rating === null || !reviewData.review) {
           console.log("Validation failed:", {
             hasPropertyId: !!reviewData.propertyId,
