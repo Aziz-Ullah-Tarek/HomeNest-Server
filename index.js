@@ -38,7 +38,7 @@ async function run() {
     // ============= API Routes =============
 
     // Get all sliders
-    app.get('/api/sliders', async (req, res) => {
+    app.get('/sliders', async (req, res) => {
       try {
         const sliders = await slidersCollection.find().toArray();
         console.log("Fetched sliders:", sliders.length);
@@ -51,7 +51,7 @@ async function run() {
     });
 
     // Test endpoint to check database connection
-    app.get('/api/test', async (req, res) => {
+    app.get('/test', async (req, res) => {
       try {
         const count = await slidersCollection.countDocuments();
         res.json({ 
@@ -66,7 +66,7 @@ async function run() {
     });
 
     // Get featured properties (6 most recent)
-    app.get('/api/properties/featured', async (req, res) => {
+    app.get('/properties/featured', async (req, res) => {
       try {
         // Sort by createdAt descending (newest first) and limit to 6
         const properties = await propertiesCollection
@@ -82,8 +82,8 @@ async function run() {
       }
     });
 
-    // all properties sorting
-    app.get('/api/properties', async (req, res) => {
+    // Get all properties with sorting
+    app.get('/properties', async (req, res) => {
       try {
         const { sortBy, order } = req.query;
         
@@ -111,7 +111,7 @@ async function run() {
     });
 
     // Get single property by ID
-    app.get('/api/properties/:id', async (req, res) => {
+    app.get('/properties/:id', async (req, res) => {
       try {
         const { ObjectId } = require('mongodb');
         const property = await propertiesCollection.findOne({ _id: new ObjectId(req.params.id) });
@@ -127,7 +127,7 @@ async function run() {
     });
 
     // Add new property (POST)
-    app.post('/api/properties', async (req, res) => {
+    app.post('/properties', async (req, res) => {
       try {
         const propertyData = req.body;
         
@@ -151,7 +151,7 @@ async function run() {
     });
 
     // Delete property by ID
-    app.delete('/api/properties/:id', async (req, res) => {
+    app.delete('/properties/:id', async (req, res) => {
       try {
         const { ObjectId } = require('mongodb');
         const result = await propertiesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
@@ -169,7 +169,7 @@ async function run() {
     });
 
     // Update property by ID
-    app.put('/api/properties/:id', async (req, res) => {
+    app.put('/properties/:id', async (req, res) => {
       try {
         const { ObjectId } = require('mongodb');
         const { _id, ...updateData } = req.body;
@@ -194,7 +194,7 @@ async function run() {
     // ============= REVIEWS API Routes =============
 
     // Get all reviews
-    app.get('/api/reviews', async (req, res) => {
+    app.get('/reviews', async (req, res) => {
       try {
         const reviews = await reviewsCollection
           .find({})
@@ -208,7 +208,7 @@ async function run() {
     });
 
     // Get all reviews for a specific property
-    app.get('/api/reviews/property/:propertyId', async (req, res) => {
+    app.get('/reviews/property/:propertyId', async (req, res) => {
       try {
         const reviews = await reviewsCollection
           .find({ propertyId: req.params.propertyId })
@@ -222,7 +222,7 @@ async function run() {
     });
 
     // Get all reviews by a specific user (for My Ratings page)
-    app.get('/api/reviews/user/:userEmail', async (req, res) => {
+    app.get('/reviews/user/:userEmail', async (req, res) => {
       try {
         const reviews = await reviewsCollection
           .find({ userEmail: req.params.userEmail })
@@ -236,7 +236,7 @@ async function run() {
     });
 
     // Add new review
-    app.post('/api/reviews', async (req, res) => {
+    app.post('/reviews', async (req, res) => {
       try {
         const reviewData = {
           ...req.body,
@@ -269,7 +269,7 @@ async function run() {
     });
 
     // Delete review by ID
-    app.delete('/api/reviews/:id', async (req, res) => {
+    app.delete('/reviews/:id', async (req, res) => {
       try {
         const { ObjectId } = require('mongodb');
         const result = await reviewsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
@@ -293,24 +293,19 @@ async function run() {
 
 run().catch(console.dir);
 
-// Simple test route
+// Home route
 app.get('/', (req, res) => {
   res.send(`
-    <h1>HomeNest Server is Running!</h1>
-    <h2>Available API Endpoints:</h2>
-    <ul>
-      <li><a href="/api/test">GET /api/test</a> - Test MongoDB connection</li>
-      <li><a href="/api/sliders">GET /api/sliders</a> - Get all sliders</li>
-      <li><a href="/api/properties/featured">GET /api/properties/featured</a> - Get featured properties (6 most recent)</li>
-      <li><a href="/api/properties">GET /api/properties</a> - Get all properties</li>
-      <li>GET /api/properties/:id - Get single property by ID</li>
-      <li>POST /api/properties - Add new property</li>
-    </ul>
-    <p><strong>Note:</strong> URLs are case-sensitive! Use lowercase routes.</p>
+    <div style=" max-width: 800px; margin: 50px auto; padding: 20px;">
+      <h1 style="color: #9333ea;"> HomeNest Server is Running!</h1>
+      <p style="color: #666; font-size: 18px;">Server is running successfully on port ${port}</p>
+    </div>
   `);
 });
 
 // Start server
 app.listen(port, () => {
-  console.log(` HomeNest Server is running on port ${port}`);
+  console.log(`\nHomeNest Server is Running!`);
+  console.log(` Server URL: http://localhost:${port}`);
+  console.log(` Connected to MongoDB\n`);
 });
