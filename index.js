@@ -1,10 +1,18 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const admin = require('firebase-admin');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Initialize Firebase Admin SDK
+const serviceAccount = require('./homenest-firebase-admin-sdk.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 // Middleware
 app.use(cors());
@@ -24,8 +32,12 @@ const client = new MongoClient(uri, {
 });
 
 // Database and Collections (will be initialized after connection)
-let database, slidersCollection, propertiesCollection, reviewsCollection;
+let database, slidersCollection, propertiesCollection, reviewsCollection, usersCollection;
 let isConnected = false;
+
+// Admin credentials from environment variables
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@12345';
 
 // Connect to MongoDB
 async function connectDB() {
@@ -39,6 +51,7 @@ async function connectDB() {
     slidersCollection = database.collection("Sliders");
     propertiesCollection = database.collection("Properties");
     reviewsCollection = database.collection("Reviews");
+    usersCollection = database.collection("Users");
     isConnected = true;
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
@@ -59,6 +72,170 @@ app.get('/', (req, res) => {
   <p style="color: #666; font-size: 18px;">Server is running successfully on port ${port}</p>
     </div>
   `);
+});
+
+// Middleware to verify Firebase token
+const verifyToken = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split('Bearer ')[1];
+    if (!token) {
+      return res.status(401).json({ message: "No token provided" });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error("Token verification error:", error);
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
+
+// Check if user is admin
+app.post('/verify-admin', verifyToken, async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+    const isAdmin = userEmail === ADMIN_EMAIL;
+    
+    res.json({ 
+      isAdmin,
+      email: userEmail
+    });
+  } catch (error) {
+    console.error("Error verifying admin:", error);
+    res.status(500).json({ message: "Error verifying admin status", error: error.message });
+  }
+});
+
+// Get or create user profile
+app.post('/users/profile', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const { email, displayName, photoURL } = req.body;
+    
+    // Check if user exists
+    let user = await usersCollection.findOne({ email });
+    
+    if (!user) {
+      // Create new user
+      const newUser = {
+        email,
+        displayName,
+        photoURL,
+        role: email === ADMIN_EMAIL ? 'admin' : 'user',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      await usersCollection.insertOne(newUser);
+      user = newUser;
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error("Error managing user profile:", error);
+    res.status(500).json({ message: "Error managing user profile", error: error.message });
+  }
+});
+
+// Update user profile
+app.put('/users/profile', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const { email, displayName, photoURL, phone, address } = req.body;
+    
+    const result = await usersCollection.updateOne(
+      { email },
+      { 
+        $set: { 
+          displayName, 
+          photoURL,
+          phone,
+          address,
+          updatedAt: new Date().toISOString()
+        }
+      },
+      { upsert: true }
+    );
+    
+    res.json({ message: "Profile updated successfully" });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Error updating profile", error: error.message });
+  }
+});
+
+// Get dashboard stats
+app.get('/dashboard/stats', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const userEmail = req.user.email;
+    const isAdmin = userEmail === ADMIN_EMAIL;
+    
+    if (isAdmin) {
+      // Admin stats
+      const totalProperties = await propertiesCollection.countDocuments();
+      const totalUsers = await usersCollection.countDocuments();
+      const totalReviews = await reviewsCollection.countDocuments();
+      
+      // Get properties by category
+      const propertiesByCategory = await propertiesCollection.aggregate([
+        { $group: { _id: "$category", count: { $sum: 1 } } }
+      ]).toArray();
+      
+      // Recent properties
+      const recentProperties = await propertiesCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
+      
+      res.json({
+        totalProperties,
+        totalUsers,
+        totalReviews,
+        propertiesByCategory,
+        recentProperties
+      });
+    } else {
+      // User stats
+      const userProperties = await propertiesCollection.countDocuments({ userEmail });
+      const userReviews = await reviewsCollection.countDocuments({ userEmail });
+      
+      const userPropertiesList = await propertiesCollection
+        .find({ userEmail })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
+      
+      res.json({
+        userProperties,
+        userReviews,
+        userPropertiesList
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    res.status(500).json({ message: "Error fetching dashboard stats", error: error.message });
+  }
+});
+
+// Get all users (admin only)
+app.get('/admin/users', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const userEmail = req.user.email;
+    
+    if (userEmail !== ADMIN_EMAIL) {
+      return res.status(403).json({ message: "Access denied. Admin only." });
+    }
+    
+    const users = await usersCollection.find().sort({ createdAt: -1 }).toArray();
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Error fetching users", error: error.message });
+  }
 });
 
 // Get all sliders
